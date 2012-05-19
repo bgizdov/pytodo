@@ -1,0 +1,5 @@
+Install
+-------
+From the source distribution, extract the tarball and run:
+
+    python setup.py install

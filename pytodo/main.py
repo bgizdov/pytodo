@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 #
-# Copyright (C) 2006 PyTodo Development Team
+# Copyright (C) 2006-2007 PyTodo Development Team
 #
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -13,63 +13,99 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, 
-# MA  02110-1301, USA.
-#
-# ==============================
-# Todo
-# sort by date
-# find
-# colors in option
-# interactive menu
-# pyqt or tk
-# do not save pickle if started from __main__
-# ==============================
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+__author__ = "PoisoneR"
+__version__ = "0.2.1"
+__projecthome__ = "http://pytodo.openfmi.net"
 
 import os
 import sys
 import getopt
-import cPickle
-from colors import Colors
+from colors import colorize
 
-__author__ = "PoisoneR"
-__version__ = "0.1.4"
-__copyright__ = "Copyright (C) 2006 PoisoneR <poisonerbg@gmail.com>"
-__projecthome__ = "http://pytodo.openfmi.net"
+if sys.version_info[:2] < (2, 5):
+	try:
+		import elementtree.ElementTree as ET
+	except ImportError:
+		print "ElementTree module not found! Please see INSTALL for help."
+		sys.exit(1)
+else:
+	import xml.etree.ElementTree as ET
 
 class CTodoContainer:
 	"""container with all CTodo's instances"""
 
 	container = []
 	savetodir = '~' + os.sep + '.pytodo'
-	savetofile = 'todo'
+	savetofile = 'todos.xml'
 	fileChanged = False
 
 	def __init__(self):
-		"""constructor load todo container"""
+		"""constructor for loading todo container from file"""
 		self.savetodir = os.path.expanduser(self.savetodir)
 		if (os.path.exists(self.savetodir + os.sep + self.savetofile)):
-			fo = file(self.savetodir + os.sep + self.savetofile, 'r')
-			CTodoContainer.container = cPickle.load(fo)
-			fo.close()
+			#f = file(self.savetodir + os.sep + self.savetofile, 'r')
+			#CTodoContainer.container = cPickle.load(f)
+			#f.close()
+			tree = ET.parse(self.savetodir + os.sep + self.savetofile)
+			root = tree.getroot()
+			for node in root:
+				newCTodo = CTodo()
+				newCTodo.todoJob = node.findtext("subject")
+				newCTodo.priority = int(node.findtext("priority"))
+				newCTodo.todate = node.findtext("date")
+				CTodoContainer.container.append(newCTodo)
+
 		else:
-			self.saveToFile()
+			self.firstRun()
 	
 	def __del__(self):
-		"""destructor save file"""
+		"""destructor for saving file if changed"""
 		if (self.fileChanged):
 			self.saveToFile()
-	
+
+	def firstRun(self):
+		"""run this function for the first time"""
+		if not os.path.exists(self.savetodir):
+			os.mkdir(self.savetodir, 0755)
+		# Generate empty xml file
+		root = ET.Element("pytodo")
+		tree = ET.ElementTree(root)
+		tree.write(self.savetodir + os.sep + self.savetofile)
+
+	def indent(self, elem, level=0):
+		"""indents a tree with each node according to its depth"""
+		i = "\n" + level*"  "
+		if len(elem):
+			if not elem.text or not elem.text.strip():
+				elem.text = i + "  "
+			for elem in elem:
+				self.indent(elem, level+1)
+			if not elem.tail or not elem.tail.strip():
+				elem.tail = i
+		else:
+			if level and (not elem.tail or not elem.tail.strip()):
+				elem.tail = i
+	    
 	def saveToFile(self):
 		"""self todo container in file"""
 		self.sortByPriority()
-		if not os.path.exists(self.savetodir):
-			os.mkdir(self.savetodir, 0711)
-		f = file(self.savetodir + os.sep + self.savetofile, 'w')
-		cPickle.dump(CTodoContainer.container, f)
-		f.close()
-			
+		#f = file(self.savetodir + os.sep + self.savetofile, 'w')
+		#cPickle.dump(CTodoContainer.container, f)
+		#f.close()
+		root = ET.Element("pytodo")
+		for todo in CTodoContainer.container:
+			entry = ET.SubElement(root, 'entry')
+			subject = ET.SubElement(entry, 'subject')
+			subject.text = todo.todoJob
+			priority = ET.SubElement(entry, 'priority')
+			priority.text = str(todo.priority)
+			date = ET.SubElement(entry, 'date')
+			date.text = todo.todate
+		self.indent(root)
+		tree = ET.ElementTree(root)
+		tree.write(self.savetodir + os.sep + self.savetofile)
 	
 	def addTodo(self):
 		"""add todo to container"""
@@ -80,42 +116,37 @@ class CTodoContainer:
 	
 	def viewTodos(self):
 		"""show all todos"""
-		color = Colors()
-		color.printc('<<<<<<  ToDo List  >>>>>>','white')
+		print colorize('white', '<<<<<<  ToDo List  >>>>>>')
 		i = 0
 		for todo in CTodoContainer.container:
 			i = i + 1
 			todo.view(i)
-		color.printc('-------------------------','white')
+		print colorize('white', '-------------------------')
 	
 	def deleteTodo(self, num):
 		"""delete todo by number"""
-		colors = Colors()
-		ln = len(CTodoContainer.container)
+		length = len(CTodoContainer.container)
 		try:
 			num = int(num)
 		except ValueError:
-			colors.printc('* You must enter integer value.', 'red')
-		if num in range(1,  ln + 1):
+			print colorize('red', '* You must enter integer value.')
+		if num in range(1,  length + 1):
 			del(CTodoContainer.container[num - 1])
 		else:
-			colors.printc('* You must enter value in 1 to %s' % str(ln), 'red')
+			print colorize('red', '* You must enter value in 1 to %s' % str(length))
 		self.fileChanged = True
 			
 	
 	def sortByPriority(self):
-		"""sort tod container by priority"""
+		"""sort todo container by priority"""
 		tmpContainer = []
-		pr = 1
-		while pr < 6:
+		pri = 1
+		while pri < 6:
 			for todo in CTodoContainer.container:
-				if todo.priority == pr:
+				if todo.priority == pri:
 					tmpContainer.append(todo)
-			pr = pr + 1
+			pri = pri + 1
 		CTodoContainer.container = tmpContainer		
-
-
-
 
 class CTodo:
 	"""todo class"""
@@ -130,46 +161,36 @@ class CTodo:
 		
 	def add(self):
 		"""add todo"""
-		colors = Colors()
-		colors.printc("*Enter subject for to-do note.", "white")
+		print colorize("white", ">> Enter subject for todo note")
 		self.todoJob = raw_input('Subject: ')
-		colors.printc("*Enter priority for the current note.", "white")
-		colors.setColor("red")
-		print "1. Highest"
-		colors.setColor("yellow")
-		print "2. High"
-		colors.setColor("green")
-		print "3. Medium"
-		colors.setColor("cyan")
-		print "4. Low"
-		colors.setColor("blue")
-		print "5. Lowest"
-		colors.resetColor()
+		print colorize("white", ">> Enter priority for the current note")
+		print colorize("red", "1. Highest")
+		print colorize("yellow", "2. High")
+		print colorize("green", "3. Medium")
+		print colorize("cyan", "4. Low")
+		print colorize("blue", "5. Lowest")
+
 		msg = ''
 		notInt = False
 		while not notInt:
 			try:
 				if msg != '':
-					colors.printc(msg, "red")
-				
+					print colorize("red", msg)
 				self.priority = int(raw_input('Priority: '))
 				notInt = True
 			except ValueError:
 				notInt = False
-				msg = '* You must enter integer value.'
+				msg = '[!] You must enter integer value'
 			if not self.priority in range(1,6):
-				msg = '* You must enter digit from 1 to 5'
+				msg = '[!] You must enter digit from 1 to 5'
 				notInt = False
 		
-		colors.printc("*Enter date to finish this job (optional)", "white")
+		print colorize("white", ">> Enter date to finish this job (optional)")
 		self.todate = raw_input('Due date: ')
-		colors.resetColor()
-		colors.printc('*You added successfully this todo "%s"' %
-				self.todoJob, "white")
+		print colorize("white", '>> You added successfully this todo "%s"' % self.todoJob)
 
 	def view(self, num = ''):
 		"""show todo job"""
-		colors = Colors()
 		if self.priority == 1:
 			color = "red"
 		elif self.priority == 2:
@@ -185,28 +206,26 @@ class CTodo:
 		
 		if num != '':
 			if self.todate != '':
-				colors.printc("%d. %s | Due date: %s" % (num,self.todoJob,self.todate), color)
+				print colorize(color, "%d. %s | Due date: %s" % (num,self.todoJob, self.todate))
 			else:
-				colors.printc("%d. %s" % (num,self.todoJob), color)
+				print colorize(color, "%d. %s" % (num, self.todoJob))
 		else:
-			colors.printc("%s to %s" % (self.todoJob,self.todate), color)
+			print colorize(color, "%s to %s" % (self.todoJob, self.todate))
 
 def errorPrint(errorMsg):
 	"""print error message"""
-	colors = Colors()
-	colors.printc(errorMsg, "red")
-	sys.exit(2)
+	print colorize("red", errorMsg)
+	sys.exit(1)
 
 def showLegend():
 	"""legend with priority colors"""
-	colors = Colors()
-	colors.printc("<<< Priority Legend >>>", "white")
-	print	
-	colors.printc("* Highest", "red")
-	colors.printc("* High", "yellow")
-	colors.printc("* Medium", "green")
-	colors.printc("* Low", "cyan")
-	colors.printc("* Lowest", "blue")
+	print colorize("white", "<<< Priority Legend >>>",)
+	print
+	print colorize("red", "* Highest",)
+	print colorize("yellow", "* High")
+	print colorize("green", "* Medium")
+	print colorize("cyan", "* Low")
+	print colorize("blue", "* Lowest")
 
 def helpScreen():
 	"""displays help messgage with options listing"""
@@ -218,17 +237,20 @@ Options:
   -d, --del=NUM		delete todo job from the list
   -l, --list		list with all todo jobs
   -s, --showlegend	shows legend with priority colors
-  -h, --help		prints this useful help message
+  -h, --help		show this useful help message and exit
   -m, --menu		show interactive menu
-  -v, --version		show program's version'''
+  -v, --version		show PyTodo version and exit'''
 
 def verScreen():
+	"""displays version"""
 	print 'PyTodo', __version__
 
 def menuMode():
+	"""runs in interactive menu mode"""
 	print 'Not implemented!'
 
 def parseOptions():
+	"""parses command line arguments"""
 	tInst = CTodoContainer()
 	if len(sys.argv) > 1:
 		try:
@@ -256,15 +278,5 @@ def parseOptions():
 	else:
 		helpScreen()
 
-def test():
-	"""test"""
-	print "<<< PyTodo started >>>"
-	x = CTodoContainer()
-	x.sortByPriority()
-	x.viewTodos()
-	print "<<< PyTodo finished >>>"
-
-#if __name__=="__main__":
-#	parseOptions()
-
-# vim:set syntax=python:
+if __name__ == "__main__":
+	parseOptions()

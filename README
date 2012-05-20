@@ -1,3 +1,7 @@
 README
 ------
-Python script for managing todo lists
+PyTodo is a program written in Python. With PyTodo you can make a list of jobs,
+which have to be completed (todo list). Then you are managing this list -
+adding new and removing completed jobs. Features: nothing complex and fancy,
+just simple and lightweight program. Todo lists are stored in xml file for
+readability from other programs. Colored output for easy reading.

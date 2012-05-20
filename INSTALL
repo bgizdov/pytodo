@@ -1,5 +1,20 @@
 Install
 -------
-From the source distribution, extract the tarball and run:
+
+From version 0.2 PyTodo depends on ElementTree library. If you are using
+Python 2.4 or earlier grab it from here -
+http://www.effbot.org/zone/element-index.htm or better from your distributor's
+package repository. ElementTree is included in Python Standard Library as of
+version 2.5, so no need to install.
+
+From the source distribution, extract the tarball:
+
+    tar zxvf pytodo-x.x.x.tar.gz
+
+change directory:
+
+    cd pytodo-x.x.x
+
+and then run installation script with root privilege:
 
     python setup.py install
